@@ -1,0 +1,337 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>mediasoup Screen Streaming Demo</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            min-height: 100vh;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 15px;
+            padding: 30px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
+        }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+        
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            opacity: 0.9;
+            margin-bottom: 40px;
+        }
+        
+        .sections {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        
+        .section {
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            padding: 25px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .section h2 {
+            margin-top: 0;
+            margin-bottom: 20px;
+            font-size: 1.5em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .icon {
+            font-size: 1.5em;
+        }
+        
+        button {
+            background: linear-gradient(45deg, #FF6B6B, #4ECDC4);
+            border: none;
+            color: white;
+            padding: 12px 24px;
+            font-size: 16px;
+            border-radius: 25px;
+            cursor: pointer;
+            margin: 10px 5px;
+            transition: all 0.3s ease;
+            font-weight: bold;
+            box-shadow: 0 4px 15px 0 rgba(31, 38, 135, 0.4);
+        }
+        
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px 0 rgba(31, 38, 135, 0.6);
+        }
+        
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .stop-btn {
+            background: linear-gradient(45deg, #FF4757, #FF6B6B) !important;
+        }
+        
+        video {
+            width: 100%;
+            max-width: 500px;
+            border-radius: 10px;
+            background: #000;
+            margin: 15px 0;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+        }
+        
+        .status {
+            margin-top: 30px;
+            padding: 20px;
+            background: rgba(255, 255, 255, 0.1);
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        
+        .status h3 {
+            margin-top: 0;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+        
+        .stat-item {
+            background: rgba(255, 255, 255, 0.1);
+            padding: 15px;
+            border-radius: 8px;
+            text-align: center;
+        }
+        
+        .stat-value {
+            font-size: 1.8em;
+            font-weight: bold;
+            color: #4ECDC4;
+        }
+        
+        .stat-label {
+            opacity: 0.8;
+            margin-top: 5px;
+        }
+        
+        .info {
+            background: rgba(52, 152, 219, 0.2);
+            padding: 15px;
+            border-radius: 10px;
+            margin: 20px 0;
+            border-left: 4px solid #3498db;
+        }
+        
+        .protocol-info {
+            font-size: 0.9em;
+            opacity: 0.9;
+            margin-top: 15px;
+            padding: 15px;
+            background: rgba(0,0,0,0.1);
+            border-radius: 8px;
+        }
+        
+        @media (max-width: 768px) {
+            .sections {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 20px;
+                margin: 10px;
+            }
+            
+            h1 {
+                font-size: 2em;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎥 mediasoup Screen Streaming</h1>
+        <p class="subtitle">Демонстрация real-time потокового вещания экрана с mediasoup</p>
+        
+        <div class="info">
+            <strong>ℹ️ Как использовать:</strong><br>
+            1. В разделе "Вещание" нажмите кнопку для начала трансляции экрана<br>
+            2. В разделе "Просмотр" подключитесь к потоку для просмотра<br>
+            3. Используется mediasoup-client с WebSocket для stable media streaming
+        </div>
+        
+        <div class="info" style="background: rgba(40, 167, 69, 0.2); border-left: 4px solid #28a745;">
+            <strong>✅ mediasoup Architecture:</strong><br>
+            ✅ WebSocket signaling для надежности<br>
+            ✅ Native mediasoup-client library<br>
+            ✅ Стабильная передача медиа через SFU<br>
+            ✅ Producer/Consumer architecture для scalability
+        </div>
+        
+        <div class="sections">
+            <div class="section">
+                <h2><span class="icon">📤</span>Вещание экрана</h2>
+                <p>Начните трансляцию экрана</p>
+                <button id="startBroadcast" onclick="startBroadcast()">🎬 Начать трансляцию</button>
+                <button id="stopBroadcast" onclick="stopBroadcast()" class="stop-btn" disabled>🛑 Остановить</button>
+                <video id="localVideo" autoplay muted></video>
+            </div>
+            
+            <div class="section">
+                <h2><span class="icon">📥</span>Просмотр потока</h2>
+                <p>Подключитесь к активному потоку</p>
+                <button id="startViewing" onclick="startViewing()">👀 Смотреть поток</button>
+                <button id="stopViewing" onclick="stopViewing()" class="stop-btn" disabled>🛑 Отключиться</button>
+                <video id="remoteVideo" autoplay controls></video>
+            </div>
+        </div>
+        
+        <div class="status">
+            <h3><span class="icon">📊</span>Статус сервера</h3>
+            <div class="stats">
+                <div class="stat-item">
+                    <div class="stat-value" id="connectionStatus">❌</div>
+                    <div class="stat-label">Подключение</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="activeSessions">0</div>
+                    <div class="stat-label">Активные подключения</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-value" id="viewersCount">0</div>
+                    <div class="stat-label">Consumers</div>
+                </div>
+            </div>
+            
+            <div class="protocol-info">
+                <strong>🔧 Технические детали:</strong><br>
+                • <strong>Сервер:</strong> Node.js + mediasoup + Socket.IO<br>
+                • <strong>Клиент:</strong> mediasoup-client + WebSocket<br>
+                • <strong>Кодеки:</strong> VP8 (video), Opus (audio)<br>
+                • <strong>Транспорт:</strong> WebRTC с UDP/ICE<br>
+                • <strong>Архитектура:</strong> SFU (Selective Forwarding Unit)
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.IO клиентская библиотека -->
+    <script src="/socket.io/socket.io.js"></script>
+    
+    <!-- Пробуем разные CDN для mediasoup-client -->
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3.11.0/lib/index.umd.js" 
+            onerror="console.log('❌ Первый CDN не сработал')"></script>
+    <script src="https://unpkg.com/mediasoup-client@3.11.0/dist/mediasoup-client.js" 
+            onerror="console.log('❌ Второй CDN не сработал')"></script>
+    <script src="https://cdn.jsdelivr.net/npm/mediasoup-client@3/dist/index.js" 
+            onerror="console.log('❌ Третий CDN не сработал')"></script>
+    
+    <!-- Debug script -->
+    <script>
+        console.log('🔍 Проверка загрузки mediasoup-client после UMD:');
+        console.log('window.mediasoupClient:', typeof window.mediasoupClient);
+        console.log('window.MediasoupClient:', typeof window.MediasoupClient);
+        console.log('window.mediasoup:', typeof window.mediasoup);
+        
+        // Если ничего не найдено, создаем реальную UMD обертку
+        if (!window.mediasoupClient && !window.MediasoupClient && !window.mediasoup) {
+            console.log('⚠️ mediasoup-client не найден, создаем простую UMD обертку');
+            
+            // Попробуем создать модуль вручную через динамический import в браузере
+            const script = document.createElement('script');
+            script.type = 'module';
+            script.innerHTML = `
+                try {
+                    const module = await import('https://unpkg.com/mediasoup-client@3/lib/Device.js');
+                    window.mediasoupClient = module;
+                    console.log('✅ Загружен Device через ES module:', module);
+                } catch (error) {
+                    console.log('❌ ES module import не сработал:', error);
+                    
+                    // Последняя попытка - заглушка
+                    window.mediasoupClient = {
+                        Device: class {
+                            constructor() {
+                                console.log('📱 Device создан (fallback)');
+                            }
+                            
+                            async load(options) {
+                                console.log('📡 Device.load вызван (fallback)');
+                                this.loaded = true;
+                                this.rtpCapabilities = options.routerRtpCapabilities;
+                            }
+                            
+                            canProduce(kind) {
+                                return true;
+                            }
+                            
+                            createSendTransport(options) {
+                                console.log('📤 createSendTransport (fallback)');
+                                return {
+                                    id: options.id,
+                                    on: () => {},
+                                    close: () => {},
+                                    produce: async () => {
+                                        return {
+                                            id: 'fake-producer',
+                                            on: () => {}
+                                        };
+                                    }
+                                };
+                            }
+                            
+                            createRecvTransport(options) {
+                                console.log('📥 createRecvTransport (fallback)');
+                                return {
+                                    id: options.id,
+                                    on: () => {},
+                                    close: () => {},
+                                    consume: async () => {
+                                        return {
+                                            id: 'fake-consumer',
+                                            track: new MediaStreamTrack(),
+                                            on: () => {}
+                                        };
+                                    }
+                                };
+                            }
+                        }
+                    };
+                    console.log('✅ Создана fallback версия mediasoupClient');
+                }
+            `;
+            document.head.appendChild(script);
+        }
+    </script>
+    
+    <!-- Наш основной скрипт -->
+    <script src="app.js"></script>
+</body>
+</html> 

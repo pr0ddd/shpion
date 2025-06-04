@@ -1,0 +1,446 @@
+<!-- Modern Video Streaming Player -->
+<div class="video-player-app">
+  <!-- Top Navigation Bar -->
+  <mat-toolbar class="app-toolbar" color="primary">
+    <div class="toolbar-content">
+      <div class="brand">
+        <mat-icon class="brand-icon">stream</mat-icon>
+        <span class="brand-text">StreamPlayer Pro</span>
+      </div>
+    
+      
+      <div class="toolbar-actions">
+        <button mat-icon-button 
+                [color]="showSettings ? 'accent' : 'primary'"
+                (click)="showSettings = !showSettings"
+                matTooltip="Settings">
+          <mat-icon>{{showSettings ? 'close' : 'settings'}}</mat-icon>
+        </button>
+      </div>
+    </div>
+  </mat-toolbar>
+
+  <!-- Main Content Layout -->
+  <div class="main-content">
+    <!-- Left Sidebar for Stream List -->
+    <div class="streams-sidebar" *ngIf="remoteStreams.length > 0">
+      <div class="streams-panel">
+        <h3>Available Streams</h3>
+        <mat-list>
+          <mat-list-item *ngFor="let stream of remoteStreams; trackBy: trackByStreamId; let i = index"
+                        [class.active-stream]="selectedStreamIndex === i"
+                        (click)="selectStream(i)">
+            <mat-icon matListItemIcon>{{stream.kind === 'video' ? 'videocam' : 'volume_up'}}</mat-icon>
+            <div matListItemTitle>Stream {{i + 1}}</div>
+            <div matListItemLine>{{stream.kind}} • {{stream.id.substring(0, 8)}}...</div>
+            <button mat-icon-button matListItemMeta>
+              <mat-icon>{{selectedStreamIndex === i ? 'pause_circle' : 'play_circle'}}</mat-icon>
+            </button>
+          </mat-list-item>
+        </mat-list>
+      </div>
+    </div>
+
+    <!-- Video Player Container -->
+    <div class="video-container" [ngClass]="{'has-sidebar': showSettings, 'has-streams-sidebar': remoteStreams.length > 0}">
+      
+      <!-- Stream Selector -->
+      <div class="stream-selector" *ngIf="remoteStreams.length > 1">
+        <mat-chip-listbox>
+          <mat-chip-option *ngFor="let stream of remoteStreams; trackBy: trackByStreamId; let i = index"
+                          [selected]="selectedStreamIndex === i"
+                          (click)="selectStream(i)">
+            <mat-icon>{{stream.kind === 'video' ? 'videocam' : 'volume_up'}}</mat-icon>
+            Stream {{i + 1}} ({{stream.kind}})
+          </mat-chip-option>
+        </mat-chip-listbox>
+      </div>
+
+      <!-- Video Player -->
+      <div class="video-player-wrapper">
+        <div class="video-display" [ngClass]="getVideoDisplayClass()">
+          
+          <!-- Local Video (Broadcasting) -->
+          <video #localVideo 
+                 *ngIf="isBroadcasting" 
+                 class="video-element local-video"
+                 autoplay 
+                 muted 
+                 playsinline
+                 [style.display]="'block'"
+                 (loadedmetadata)="onLocalVideoLoaded($event)">
+          </video>
+          
+          <!-- Debug Info -->
+          <div class="debug-info" *ngIf="isBroadcasting" style="position: absolute; top: 10px; left: 10px; background: rgba(0,0,0,0.8); color: white; padding: 10px; border-radius: 5px;">
+            <div>Broadcasting: {{isBroadcasting}}</div>
+            <div>Has Video Producer: {{hasVideoProducer}}</div>
+            <div>Local Video Element: {{localVideoRef ? 'Available' : 'Not Available'}}</div>
+          </div>
+          
+          <!-- Remote Video (Viewing) -->
+          <div class="remote-video-container" *ngIf="isViewing && remoteStreams.length > 0">
+            <video #remoteVideo
+                   class="video-element remote-video"
+                   [srcObject]="getSelectedStream()?.stream"
+                   autoplay 
+                   playsinline
+                   [volume]="volume / 100"
+                   (loadedmetadata)="onVideoLoaded($event)"
+                   (timeupdate)="onTimeUpdate($event)"
+                   (durationchange)="onDurationChange($event)"
+                   (volumechange)="onVolumeChange($event)"
+                   (play)="isPlaying = true"
+                   (pause)="isPlaying = false">
+            </video>
+          </div>
+          
+          <!-- Video Controls Overlay -->
+          <div class="video-controls-overlay" 
+               *ngIf="(isBroadcasting || (isViewing && remoteStreams.length > 0))"
+               [ngClass]="{'controls-visible': true}"
+               (mouseenter)="showVideoControls()"
+               (mouseleave)="hideVideoControls()">
+            
+            <!-- Buffering Spinner -->
+            <div class="buffering-indicator" *ngIf="isBuffering">
+              <mat-spinner diameter="60"></mat-spinner>
+              <span>Buffering...</span>
+            </div>
+            
+            <!-- Play/Pause Button (Center) -->
+            <button mat-fab 
+                    class="play-pause-center"
+                    *ngIf="!isPlaying && isViewing"
+                    (click)="togglePlayPause()"
+                    color="primary">
+              <mat-icon>play_arrow</mat-icon>
+            </button>
+            
+            <!-- Bottom Controls Bar -->
+            <div class="video-controls-bar">
+              <!-- Left Controls -->
+              <div class="left-controls">
+                <!-- Play/Pause -->
+                <button mat-raised-button 
+                        *ngIf="isViewing"
+                        (click)="togglePlayPause()"
+                        color="primary"
+                        class="control-btn">
+                  <mat-icon>{{isPlaying ? 'pause' : 'play_arrow'}}</mat-icon>
+                  {{isPlaying ? 'Pause' : 'Play'}}
+                </button>
+                
+                <!-- Stop Viewing -->
+                <button mat-raised-button 
+                        *ngIf="isViewing"
+                        (click)="stopViewing()"
+                        color="warn"
+                        class="control-btn">
+                  <mat-icon>stop</mat-icon>
+                  Stop Viewing
+                </button>
+                
+                <!-- Stop Broadcasting -->
+                <button mat-raised-button 
+                        *ngIf="isBroadcasting"
+                        (click)="stopBroadcast()"
+                        color="warn"
+                        class="control-btn">
+                  <mat-icon>stop</mat-icon>
+                  Stop Broadcasting
+                </button>
+                
+                <!-- Picture in Picture -->
+                <button mat-raised-button 
+                        *ngIf="isViewing && supportsPiP"
+                        (click)="togglePictureInPicture()"
+                        class="control-btn"
+                        matTooltip="Picture in Picture">
+                  <mat-icon>picture_in_picture_alt</mat-icon>
+                  PiP
+                </button>
+                
+                <!-- Fullscreen -->
+                <button mat-raised-button 
+                        (click)="toggleFullscreen()"
+                        color="accent"
+                        class="control-btn"
+                        matTooltip="Fullscreen">
+                  <mat-icon>{{isFullscreen ? 'fullscreen_exit' : 'fullscreen'}}</mat-icon>
+                  {{isFullscreen ? 'Exit' : 'Fullscreen'}}
+                </button>
+              </div>
+              
+              <!-- Right Controls -->
+              <div class="right-controls">
+                <!-- Quality Selector -->
+                <div class="quality-selector" *ngIf="isViewing">
+                  <mat-form-field appearance="outline" class="quality-select">
+                    <mat-select [(value)]="selectedQuality" (selectionChange)="onQualityChange($event)">
+                      <mat-option value="auto">AUTO</mat-option>
+                      <mat-option value="1080p">1080p</mat-option>
+                      <mat-option value="720p">720p</mat-option>
+                      <mat-option value="480p">480p</mat-option>
+                      <mat-option value="360p">360p</mat-option>
+                    </mat-select>
+                  </mat-form-field>
+                </div>
+                
+                <!-- Volume -->
+                <div class="volume-control" *ngIf="isViewing">
+                  <button mat-icon-button 
+                          (click)="toggleMute()"
+                          class="control-btn">
+                    <mat-icon>{{isMuted ? 'volume_off' : (volume > 50 ? 'volume_up' : 'volume_down')}}</mat-icon>
+                  </button>
+                  <mat-slider class="volume-slider"
+                            [min]="0" 
+                            [max]="100" 
+                            (input)="onVolumeSliderChange($event)">
+                    <input matSliderThumb [value]="volume">
+                  </mat-slider>
+                  <span class="volume-text">{{volume}}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+          
+          <!-- Placeholder Screen -->
+          <div class="video-placeholder" 
+               *ngIf="!isBroadcasting && (!isViewing || remoteStreams.length === 0)">
+            <div class="placeholder-content">
+              <mat-icon class="placeholder-icon">{{getPlaceholderIcon()}}</mat-icon>
+              <h2 class="placeholder-title">{{getPlaceholderTitle()}}</h2>
+              <p class="placeholder-text">{{getPlaceholderText()}}</p>
+              
+              <!-- Quick Actions -->
+              <div class="placeholder-actions" *ngIf="isConnected">
+                <button mat-raised-button 
+                        color="primary"
+                        (click)="startBroadcast()"
+                        [disabled]="isBroadcasting">
+                  <mat-icon>videocam</mat-icon>
+                  Start Broadcasting
+                </button>
+                <button mat-raised-button 
+                        color="accent"
+                        (click)="startViewing()"
+                        [disabled]="isViewing">
+                  <mat-icon>play_circle</mat-icon>
+                  Start Viewing
+                </button>
+              </div>
+              
+              <button mat-raised-button 
+                      color="primary"
+                      *ngIf="!isConnected"
+                      (click)="connect()">
+                <mat-icon>link</mat-icon>
+                Connect to Server
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Settings Sidebar -->
+    <div class="settings-sidebar" *ngIf="showSettings">
+      <mat-tab-group class="settings-tabs" animationDuration="300ms">
+        
+        <!-- Controls Tab -->
+        <mat-tab label="Controls">
+          <div class="tab-content">
+            <mat-card class="control-card">
+              <mat-card-header>
+                <mat-card-title>Broadcasting</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="control-group">
+                  <button mat-raised-button 
+                          color="primary"
+                          [disabled]="!isConnected || isBroadcasting"
+                          (click)="startBroadcast()"
+                          class="action-btn">
+                    <mat-icon>videocam</mat-icon>
+                    Start Broadcast
+                  </button>
+                  <button mat-stroked-button 
+                          color="warn"
+                          [disabled]="!isBroadcasting"
+                          (click)="stopBroadcast()"
+                          class="action-btn">
+                    <mat-icon>stop</mat-icon>
+                    Stop Broadcast
+                  </button>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="control-card">
+              <mat-card-header>
+                <mat-card-title>Viewing</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="control-group">
+                  <button mat-raised-button 
+                          color="accent"
+                          [disabled]="!isConnected || isViewing"
+                          (click)="startViewing()"
+                          class="action-btn">
+                    <mat-icon>play_circle</mat-icon>
+                    Start Viewing
+                  </button>
+                  <button mat-stroked-button 
+                          [disabled]="!isViewing"
+                          (click)="stopViewing()"
+                          class="action-btn">
+                    <mat-icon>stop_circle</mat-icon>
+                    Stop Viewing
+                  </button>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="control-card">
+              <mat-card-header>
+                <mat-card-title>Connection</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="control-group">
+                  <button mat-raised-button 
+                          [disabled]="isConnected"
+                          (click)="connect()"
+                          class="action-btn">
+                    <mat-icon>link</mat-icon>
+                    Connect
+                  </button>
+                  <button mat-stroked-button 
+                          color="warn"
+                          [disabled]="!isConnected"
+                          (click)="disconnect()"
+                          class="action-btn">
+                    <mat-icon>link_off</mat-icon>
+                    Disconnect
+                  </button>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+
+        <!-- Settings Tab -->
+        <mat-tab label="Settings">
+          <div class="tab-content">
+            <mat-card class="settings-card">
+              <mat-card-header>
+                <mat-card-title>Video Settings</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <mat-slide-toggle 
+                  [(ngModel)]="simulcastEnabled"
+                  class="setting-toggle">
+                  Enable Simulcast (Recommended for Screen Sharing)
+                </mat-slide-toggle>
+
+                <mat-slide-toggle 
+                  [(ngModel)]="tcpTransportEnabled"
+                  class="setting-toggle">
+                  TCP Transport (Better for Firewalls)
+                </mat-slide-toggle>
+
+                <mat-slide-toggle 
+                  [(ngModel)]="dataChannelsEnabled"
+                  class="setting-toggle">
+                  Data Channels (For Chat/Statistics)
+                </mat-slide-toggle>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+
+        <!-- Stats Tab -->
+        <mat-tab label="Statistics">
+          <div class="tab-content">
+            <mat-card class="stats-card">
+              <mat-card-header>
+                <mat-card-title>Connection Info</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="stats-grid">
+                  <div class="stat-item">
+                    <mat-icon class="stat-icon">wifi</mat-icon>
+                    <div class="stat-info">
+                      <div class="stat-label">Status</div>
+                      <div class="stat-value">{{connectionState}}</div>
+                    </div>
+                  </div>
+                  <div class="stat-item">
+                    <mat-icon class="stat-icon">router</mat-icon>
+                    <div class="stat-info">
+                      <div class="stat-label">Server</div>
+                      <div class="stat-value">{{serverInfo.ip || 'localhost:3000'}}</div>
+                    </div>
+                  </div>
+                  <div class="stat-item">
+                    <mat-icon class="stat-icon">send</mat-icon>
+                    <div class="stat-info">
+                      <div class="stat-label">Producers</div>
+                      <div class="stat-value">{{stats.producers}}</div>
+                    </div>
+                  </div>
+                  <div class="stat-item">
+                    <mat-icon class="stat-icon">get_app</mat-icon>
+                    <div class="stat-info">
+                      <div class="stat-label">Consumers</div>
+                      <div class="stat-value">{{stats.consumers}}</div>
+                    </div>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+
+            <mat-card class="stats-card" *ngIf="streamQuality">
+              <mat-card-header>
+                <mat-card-title>Stream Quality</mat-card-title>
+              </mat-card-header>
+              <mat-card-content>
+                <div class="quality-info">
+                  <div class="quality-item">
+                    <span class="quality-label">Resolution:</span>
+                    <span class="quality-value">{{streamQuality.resolution}}</span>
+                  </div>
+                  <div class="quality-item">
+                    <span class="quality-label">Frame Rate:</span>
+                    <span class="quality-value">{{streamQuality.fps}} fps</span>
+                  </div>
+                  <div class="quality-item">
+                    <span class="quality-label">Bitrate:</span>
+                    <span class="quality-value">{{streamQuality.bitrate}}</span>
+                  </div>
+                  <div class="quality-item">
+                    <span class="quality-label">Codec:</span>
+                    <span class="quality-value">{{streamQuality.codec}}</span>
+                  </div>
+                  <div class="quality-item" *ngIf="streamQuality.simulcast">
+                    <span class="quality-label">Simulcast:</span>
+                    <span class="quality-value">{{streamQuality.spatialLayers}} layers</span>
+                  </div>
+                </div>
+              </mat-card-content>
+            </mat-card>
+          </div>
+        </mat-tab>
+      </mat-tab-group>
+    </div>
+  </div>
+
+  <!-- Loading Overlay -->
+  <div class="loading-overlay" *ngIf="isLoading">
+    <div class="loading-content">
+      <mat-spinner diameter="60"></mat-spinner>
+      <p class="loading-message">{{loadingMessage}}</p>
+    </div>
+  </div>
+</div> 

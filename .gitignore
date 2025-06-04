@@ -1,0 +1,131 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+package-lock.json.bak
+yarn.lock.bak
+
+# Angular build outputs
+whipwhep-vite/dist/
+whipwhep-vite/.angular/
+whipwhep-vite/tmp/
+whipwhep-vite/out-tsc/
+whipwhep-vite/bazel-out/
+
+# Build outputs
+dist/
+build/
+out/
+.angular/cache/
+.sass-cache/
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.*.local
+
+# Logs and runtime
+*.log
+logs/
+*.pid
+*.seed
+*.pid.lock
+pids/
+
+# Coverage and testing
+coverage/
+*.lcov
+.nyc_output/
+lib-cov/
+
+# TypeScript
+*.tsbuildinfo
+typings/
+
+# Cache directories
+.npm
+.cache
+.parcel-cache
+.eslintcache
+.grunt
+
+# Temporary files
+tmp/
+temp/
+.tmp/
+connect.lock
+
+# MediaSoup specific
+*.pem
+*.key
+*.crt
+*.cert
+
+# IDE/Editor files
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+.idea/
+*.swp
+*.swo
+*~
+*.code-workspace
+.history/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+.AppleDouble
+.LSOverride
+Icon
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+$RECYCLE.BIN/
+
+# Archives
+*.7z
+*.dmg
+*.gz
+*.iso
+*.jar
+*.rar
+*.tar
+*.zip
+
+# Other
+.optional
+.pnp
+.pnp.js
+*.tgz
+.node_repl_history
+.yarn-integrity
+bower_components/
+
+# Framework specific
+.next
+.nuxt
+.out
+.storybook-out
+
+# Database files
+*.sql
+*.sqlite
+*.sqlite3
+
+# Runtime files
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw? 
