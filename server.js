@@ -511,6 +511,17 @@ io.on('connection', (socket) => {
         throw new Error('Consumer not found');
       }
 
+      // Проверяем режим AUTO (когда spatialLayer и temporalLayer undefined или null)
+      if (data.spatialLayer === undefined || data.spatialLayer === null || 
+          data.temporalLayer === undefined || data.temporalLayer === null) {
+        // Режим AUTO - сбрасываем предпочтительные слои
+        console.log(`🎬 Consumer ${data.consumerId} режим AUTO - сброс preferred layers`);
+        await consumerData.consumer.setPreferredLayers();
+        callback();
+        return;
+      }
+
+      // Принудительная установка конкретных слоев
       await consumerData.consumer.setPreferredLayers({
         spatialLayer: data.spatialLayer,
         temporalLayer: data.temporalLayer

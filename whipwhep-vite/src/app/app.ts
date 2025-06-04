@@ -164,7 +164,6 @@ export class AppComponent implements OnInit, OnDestroy {
 
   // Control visibility
   private controlsTimeout?: any;
-  private currentConsumer?: any;
 
   // Settings - optimized for screen sharing
   simulcastEnabled = true;  // ✅ Perfect for screen capture
@@ -323,38 +322,6 @@ export class AppComponent implements OnInit, OnDestroy {
       // Auto-select first stream if none selected
       if (this.remoteStreams.length > 0 && this.selectedStreamIndex >= this.remoteStreams.length) {
         this.selectedStreamIndex = 0;
-      }
-      
-      // Update current consumer for quality control
-      const consumers = this.mediasoupService.getConsumers;
-      const previousConsumer = this.currentConsumer;
-      
-      if (consumers.size > 0) {
-        // Get the video consumer (preferred) or first consumer
-        this.currentConsumer = Array.from(consumers.values()).find(c => c.kind === 'video') || 
-                              Array.from(consumers.values())[0];
-        
-        // Log consumer changes
-        if (this.currentConsumer !== previousConsumer) {
-          console.log('🔄 Consumer updated:', {
-            previous: previousConsumer ? {
-              id: previousConsumer.id,
-              kind: previousConsumer.kind
-            } : null,
-            current: this.currentConsumer ? {
-              id: this.currentConsumer.id,
-              kind: this.currentConsumer.kind,
-              setPreferredLayers: typeof this.currentConsumer.setPreferredLayers,
-              unsetPreferredLayers: typeof this.currentConsumer.unsetPreferredLayers
-            } : null,
-            totalConsumers: consumers.size
-          });
-        }
-      } else {
-        if (this.currentConsumer !== null) {
-          console.log('🔄 No consumers available, clearing currentConsumer');
-          this.currentConsumer = null;
-        }
       }
     }, 1000);
 
@@ -698,7 +665,6 @@ export class AppComponent implements OnInit, OnDestroy {
   async stopViewing() {
     // Stop receiving streams
     this.isViewing = false;
-    this.currentConsumer = null;
     this.selectedQuality = 'auto';
     this.showInfoMessage('Отключено от просмотра');
   }
@@ -1223,51 +1189,51 @@ export class AppComponent implements OnInit, OnDestroy {
   onQualityChange(event: any): void {
     const quality = event.value;
     console.log('🎯 Quality change requested:', quality);
-    console.log('🔍 Current consumer:', this.currentConsumer);
-    console.log('🔍 Available consumers:', this.mediasoupService.getConsumers);
     
     this.selectedQuality = quality;
     
-    if (!this.currentConsumer) {
-      console.warn('⚠️ No current consumer available for quality change');
-      this.showErrorMessage('No active stream to change quality');
+    // Получаем ID video consumer
+    const videoConsumerId = this.mediasoupService.getVideoConsumerId();
+    if (!videoConsumerId) {
+      console.warn('⚠️ No video consumer available for quality change');
+      this.showErrorMessage('No active video stream to change quality');
       return;
     }
     
-    console.log('🔍 Consumer methods available:', {
-      setPreferredLayers: typeof this.currentConsumer.setPreferredLayers,
-      preferredLayers: this.currentConsumer.preferredLayers,
-      kind: this.currentConsumer.kind,
-      id: this.currentConsumer.id
-    });
+    console.log('🔍 Video Consumer ID:', videoConsumerId);
     
     if (quality === 'auto') {
       // Сброс на автоматический режим - убираем предпочтительные слои
       console.log('🔄 Setting quality to AUTO mode');
-      if (typeof this.currentConsumer.setPreferredLayers === 'function') {
-        // Передаем undefined или null для сброса предпочтительных слоев
-        this.currentConsumer.setPreferredLayers(undefined);
-        console.log('✅ AUTO mode activated successfully');
-        this.showInfoMessage('Quality set to AUTO');
-      } else {
-        console.error('❌ setPreferredLayers method not available');
-        this.showErrorMessage('AUTO mode not supported');
-      }
+      this.mediasoupService.setConsumerPreferredLayers(videoConsumerId)
+        .then(() => {
+          console.log('✅ AUTO mode activated successfully');
+          this.showInfoMessage('Quality set to AUTO');
+        })
+        .catch((error) => {
+          console.error('❌ Failed to set AUTO mode:', error);
+          this.showErrorMessage('Failed to set AUTO mode');
+        });
     } else {
       // Принудительная установка слоя
       const layer = this.getQualityLayer(quality);
       console.log('🎯 Quality layer for', quality, ':', layer);
       
       if (layer) {
-        if (typeof this.currentConsumer.setPreferredLayers === 'function') {
-          console.log('🔄 Setting preferred layers:', layer);
-          this.currentConsumer.setPreferredLayers(layer);
+        console.log('🔄 Setting preferred layers:', layer);
+        this.mediasoupService.setConsumerPreferredLayers(
+          videoConsumerId, 
+          layer.spatialLayer, 
+          layer.temporalLayer
+        )
+        .then(() => {
           console.log('✅ Quality locked to', quality);
           this.showInfoMessage(`Quality locked to ${quality}`);
-        } else {
-          console.error('❌ setPreferredLayers method not available');
-          this.showErrorMessage('Quality control not supported');
-        }
+        })
+        .catch((error) => {
+          console.error('❌ Failed to set quality:', error);
+          this.showErrorMessage(`Failed to set quality to ${quality}`);
+        });
       } else {
         console.error('❌ Invalid quality layer for', quality);
         this.showErrorMessage('Invalid quality setting');

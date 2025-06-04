@@ -1182,14 +1182,58 @@ export class MediasoupService {
 
   // Simulcast layer control  
   async setSimulcastLayer(spatialLayer: number): Promise<void> {
-    if (this.videoProducer && this.config.simulcastEnabled) {
-      try {
-        await this.videoProducer.setMaxSpatialLayer(spatialLayer);
-        console.log(`📊 Simulcast spatial layer set to: ${spatialLayer}`);
-      } catch (error) {
-        console.error('❌ Failed to set simulcast layer:', error);
+    return new Promise((resolve, reject) => {
+      this.socket.emit('setSimulcastLayer', { spatialLayer }, (response: any) => {
+        if (response.error) {
+          reject(new Error(response.error));
+        } else {
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Новый метод для управления качеством через server-side consumer
+  async setConsumerPreferredLayers(consumerId: string, spatialLayer?: number, temporalLayer?: number): Promise<void> {
+    return new Promise((resolve, reject) => {
+      console.log('🎯 Setting consumer preferred layers:', { consumerId, spatialLayer, temporalLayer });
+      
+      // Проверяем режим AUTO
+      const isAutoMode = spatialLayer === undefined && temporalLayer === undefined;
+      
+      this.socket.emit('setConsumerPreferredLayers', { 
+        consumerId, 
+        spatialLayer: isAutoMode ? null : spatialLayer,
+        temporalLayer: isAutoMode ? null : temporalLayer
+      }, (response: any) => {
+        if (response && response.error) {
+          console.error('❌ Failed to set preferred layers:', response.error);
+          reject(new Error(response.error));
+        } else {
+          if (isAutoMode) {
+            console.log('✅ AUTO mode activated (preferred layers reset)');
+          } else {
+            console.log('✅ Preferred layers set successfully');
+          }
+          resolve();
+        }
+      });
+    });
+  }
+
+  // Метод для явного сброса предпочтительных слоев (AUTO режим)
+  async resetConsumerPreferredLayers(consumerId: string): Promise<void> {
+    return this.setConsumerPreferredLayers(consumerId);
+  }
+
+  // Метод для получения ID первого video consumer
+  getVideoConsumerId(): string | null {
+    for (const [consumerId, consumer] of this.consumers) {
+      if (consumer.kind === 'video') {
+        return consumerId;
       }
     }
+    return null;
   }
 
   // Get transport stats
